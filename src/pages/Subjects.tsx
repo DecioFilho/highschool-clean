@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,11 +34,7 @@ export default function Subjects() {
     description: ''
   });
 
-  useEffect(() => {
-    fetchSubjects();
-  }, []);
-
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('subjects')
@@ -56,7 +52,11 @@ export default function Subjects() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchSubjects();
+  }, [fetchSubjects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,10 +100,10 @@ export default function Subjects() {
       setEditingSubject(null);
       setFormData({ name: '', code: '', description: '' });
       fetchSubjects();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Erro',
-        description: error.message || 'Erro ao salvar matéria',
+        description: error instanceof Error ? error.message : 'Erro ao salvar matéria',
         variant: 'destructive',
       });
     } finally {

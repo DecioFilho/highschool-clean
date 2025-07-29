@@ -7,17 +7,20 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import Users from "./pages/Users";
-import Subjects from "./pages/Subjects";
-import Classes from "./pages/Classes";
-import Enrollments from "./pages/Enrollments";
-import TeacherCompetencies from "./pages/TeacherCompetencies";
-import ClassSubjects from "./pages/ClassSubjects";
-import Grades from "./pages/Grades";
-import Attendance from "./pages/Attendance";
-import NotFound from "./pages/NotFound";
+import { lazy, Suspense } from "react";
+
+// Lazy loading das páginas
+const Auth = lazy(() => import("./pages/Auth"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Users = lazy(() => import("./pages/Users"));
+const Subjects = lazy(() => import("./pages/Subjects"));
+const Classes = lazy(() => import("./pages/Classes"));
+const Enrollments = lazy(() => import("./pages/Enrollments"));
+const TeacherCompetencies = lazy(() => import("./pages/TeacherCompetencies"));
+const ClassSubjects = lazy(() => import("./pages/ClassSubjects"));
+const Grades = lazy(() => import("./pages/Grades"));
+const Attendance = lazy(() => import("./pages/Attendance"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -34,9 +37,10 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/auth" element={<Auth />} />
+            <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Carregando...</div>}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/auth" element={<Auth />} />
               <Route
                 path="/dashboard"
                 element={
@@ -127,9 +131,10 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>

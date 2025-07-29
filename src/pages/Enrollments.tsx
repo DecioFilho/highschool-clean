@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -56,11 +56,7 @@ export default function Enrollments() {
     class_id: ''
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // Fetch enrollments with student and class data
       const { data: enrollmentsData, error: enrollmentsError } = await supabase
@@ -103,7 +99,11 @@ export default function Enrollments() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,10 +146,10 @@ export default function Enrollments() {
       setIsDialogOpen(false);
       setFormData({ student_id: '', class_id: '' });
       fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Erro',
-        description: error.message || 'Erro ao realizar matrícula',
+        description: error instanceof Error ? error.message : 'Erro ao realizar matrícula',
         variant: 'destructive',
       });
     } finally {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -51,11 +51,7 @@ export default function TeacherCompetencies() {
     subject_id: ''
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // Fetch competencies with teacher and subject data
       const { data: competenciesData, error: competenciesError } = await supabase
@@ -98,7 +94,11 @@ export default function TeacherCompetencies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,10 +140,10 @@ export default function TeacherCompetencies() {
       setIsDialogOpen(false);
       setFormData({ teacher_id: '', subject_id: '' });
       fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Erro',
-        description: error.message || 'Erro ao adicionar competência',
+        description: error instanceof Error ? error.message : 'Erro ao adicionar competência',
         variant: 'destructive',
       });
     } finally {
