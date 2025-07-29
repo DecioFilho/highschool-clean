@@ -1,0 +1,179 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* HighSchool Connect Design System - Modern & Elegant */
+
+@layer base {
+  :root {
+    /* Primary brand colors - Education focused blues and purples */
+    --background: 0 0% 100%;
+    --foreground: 225 15% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 225 15% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 225 15% 20%;
+
+    /* Primary: Deep educational blue */
+    --primary: 224 64% 33%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 224 64% 28%;
+
+    /* Secondary: Soft lavender */
+    --secondary: 250 20% 95%;
+    --secondary-foreground: 225 15% 20%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 225 8% 55%;
+
+    /* Accent: Warm purple */
+    --accent: 262 52% 47%;
+    --accent-foreground: 0 0% 98%;
+    --accent-hover: 262 52% 42%;
+
+    /* Success: Fresh green */
+    --success: 142 52% 39%;
+    --success-foreground: 0 0% 98%;
+
+    /* Warning: Warm orange */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 224 64% 33%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar colors - Lighter for better contrast */
+    --sidebar-background: 220 15% 25%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 224 64% 33%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 220 15% 35%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 220 15% 35%;
+    --sidebar-ring: 224 64% 33%;
+
+    /* Gradients for modern effects */
+    --gradient-primary: linear-gradient(135deg, hsl(224 64% 33%), hsl(262 52% 47%));
+    --gradient-secondary: linear-gradient(135deg, hsl(250 20% 95%), hsl(240 5% 96%));
+    
+    /* Shadows for depth */
+    --shadow-sm: 0 1px 2px 0 hsl(225 15% 20% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(225 15% 20% / 0.1), 0 2px 4px -1px hsl(225 15% 20% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(225 15% 20% / 0.1), 0 4px 6px -2px hsl(225 15% 20% / 0.05);
+    --shadow-xl: 0 20px 25px -5px hsl(225 15% 20% / 0.1), 0 10px 10px -5px hsl(225 15% 20% / 0.04);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    /* Dark mode: Deep blues with purple accents */
+    --background: 225 25% 8%;
+    --foreground: 240 10% 95%;
+
+    --card: 225 25% 10%;
+    --card-foreground: 240 10% 95%;
+
+    --popover: 225 25% 10%;
+    --popover-foreground: 240 10% 95%;
+
+    /* Primary: Bright blue for dark mode */
+    --primary: 214 82% 51%;
+    --primary-foreground: 225 25% 8%;
+    --primary-hover: 214 82% 46%;
+
+    --secondary: 225 20% 15%;
+    --secondary-foreground: 240 10% 95%;
+
+    --muted: 225 20% 15%;
+    --muted-foreground: 240 5% 65%;
+
+    /* Accent: Vibrant purple */
+    --accent: 270 70% 60%;
+    --accent-foreground: 225 25% 8%;
+    --accent-hover: 270 70% 55%;
+
+    --success: 142 52% 39%;
+    --success-foreground: 0 0% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 225 20% 20%;
+    --input: 225 20% 20%;
+    --ring: 214 82% 51%;
+
+    /* Dark sidebar */
+    --sidebar-background: 220 15% 25%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 214 82% 51%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 220 15% 35%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 220 15% 35%;
+    --sidebar-ring: 214 82% 51%;
+
+    /* Dark gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(214 82% 51%), hsl(270 70% 60%));
+    --gradient-secondary: linear-gradient(135deg, hsl(225 20% 15%), hsl(225 25% 10%));
+
+    /* Dark shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.15);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.2), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.25), 0 4px 6px -2px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 0% / 0.3), 0 10px 10px -5px hsl(0 0% 0% / 0.15);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Force sidebar visibility and contrast */
+@layer components {
+  [data-sidebar="sidebar"] {
+    background: hsl(220 15% 25%) !important;
+    border-right: 1px solid hsl(220 15% 35%) !important;
+  }
+  
+  [data-sidebar="menu-button"] {
+    color: hsl(0 0% 95%) !important;
+  }
+  
+  [data-sidebar="menu-button"] svg {
+    color: hsl(0 0% 95%) !important;
+    opacity: 1 !important;
+  }
+  
+  [data-sidebar="menu-button"]:hover {
+    background: hsl(220 15% 35%) !important;
+    color: hsl(0 0% 98%) !important;
+  }
+  
+  [data-sidebar="menu-button"][data-active="true"] {
+    background: hsl(224 64% 33%) !important;
+    color: hsl(0 0% 98%) !important;
+  }
+  
+  [data-sidebar="group-label"] {
+    color: hsl(0 0% 85%) !important;
+  }
+}
+
