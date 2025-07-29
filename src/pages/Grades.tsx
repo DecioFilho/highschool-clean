@@ -90,7 +90,7 @@ export default function Grades() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
-  const { isAdmin } = useAuth();
+  const { isAdmin, isTeacher, user } = useAuth();
   const { toast } = useToast();
 
   // Filters
@@ -113,8 +113,8 @@ export default function Grades() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Fetch grades with relations
-      const { data: gradesData, error: gradesError } = await supabase
+      // Build query based on user role
+      let gradesQuery = supabase
         .from('grades')
         .select(`
           *,
@@ -125,19 +125,32 @@ export default function Grades() {
             classes (name, code),
             subjects (name, code)
           )
-        `)
+        `);
+
+      // Filter by teacher if user is a teacher
+      if (isTeacher && user?.id) {
+        gradesQuery = gradesQuery.eq('teacher_id', user.id);
+      }
+
+      const { data: gradesData, error: gradesError } = await gradesQuery
         .order('evaluation_date', { ascending: false });
 
       if (gradesError) throw gradesError;
 
-      // Fetch class subjects for form
-      const { data: classSubjectsData, error: classSubjectsError } = await supabase
+      // Fetch class subjects for form - filter by teacher if not admin
+      let classSubjectsQuery = supabase
         .from('class_subjects')
         .select(`
           id,
           classes (name, code),
           subjects (name, code)
-        `)
+        `);
+
+      if (isTeacher && user?.id) {
+        classSubjectsQuery = classSubjectsQuery.eq('teacher_id', user.id);
+      }
+
+      const { data: classSubjectsData, error: classSubjectsError } = await classSubjectsQuery
         .order('classes(name)');
 
       if (classSubjectsError) throw classSubjectsError;
@@ -177,7 +190,7 @@ export default function Grades() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, isTeacher, user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -221,10 +234,23 @@ export default function Grades() {
         return;
       }
 
+      // Set teacher_id automatically for teachers
+      const teacherId = isTeacher && user?.id ? user.id : formData.teacher_id;
+
+      if (!teacherId) {
+        toast({
+          title: "Erro de Validação",
+          description: "Professor deve ser selecionado.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const gradeData = {
         student_id: formData.student_id,
         class_subject_id: formData.class_subject_id,
-        teacher_id: formData.teacher_id,
+        teacher_id: teacherId,
         grade_value: gradeValue,
         grade_type: formData.grade_type,
         evaluation_date: formData.evaluation_date,
@@ -410,25 +436,28 @@ export default function Grades() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="teacher_id">Professor</Label>
-                    <Select
-                      value={formData.teacher_id}
-                      onValueChange={(value) => setFormData({ ...formData, teacher_id: value })}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um professor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teachers.map((teacher) => (
-                          <SelectItem key={teacher.id} value={teacher.id}>
-                            {teacher.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Show teacher selection only for admins */}
+                  {isAdmin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="teacher_id">Professor</Label>
+                      <Select
+                        value={formData.teacher_id}
+                        onValueChange={(value) => setFormData({ ...formData, teacher_id: value })}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um professor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teachers.map((teacher) => (
+                            <SelectItem key={teacher.id} value={teacher.id}>
+                              {teacher.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="grade_type">Tipo de Nota</Label>
@@ -547,25 +576,28 @@ export default function Grades() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Professor</Label>
-              <Select
-                value={filters.teacher_id}
-                onValueChange={(value) => setFilters({ ...filters, teacher_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
-                  {teachers.map((teacher) => (
-                    <SelectItem key={teacher.id} value={teacher.id}>
-                      {teacher.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Show teacher filter only for admins */}
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label>Professor</Label>
+                <Select
+                  value={filters.teacher_id}
+                  onValueChange={(value) => setFilters({ ...filters, teacher_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos</SelectItem>
+                    {teachers.map((teacher) => (
+                      <SelectItem key={teacher.id} value={teacher.id}>
+                        {teacher.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Tipo de Nota</Label>
@@ -620,7 +652,7 @@ export default function Grades() {
                     <TableHead>Aluno</TableHead>
                     <TableHead>Turma</TableHead>
                     <TableHead>Disciplina</TableHead>
-                    <TableHead>Professor</TableHead>
+                    {isAdmin && <TableHead>Professor</TableHead>}
                     <TableHead>Nota</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Data</TableHead>
@@ -654,7 +686,7 @@ export default function Grades() {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>{grade.teacher.full_name}</TableCell>
+                      {isAdmin && <TableCell>{grade.teacher.full_name}</TableCell>}
                       <TableCell>
                         <Badge variant={grade.grade_value >= 6 ? "default" : "destructive"}>
                           {grade.grade_value.toFixed(1)}

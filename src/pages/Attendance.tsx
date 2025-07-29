@@ -75,7 +75,7 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<Attendance | null>(null);
-  const { isAdmin } = useAuth();
+  const { isAdmin, isTeacher, user } = useAuth();
   const { toast } = useToast();
 
   // Filters
@@ -100,8 +100,8 @@ export default function Attendance() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Fetch attendance records with relations
-      const { data: attendanceData, error: attendanceError } = await supabase
+      // Build query based on user role
+      let attendanceQuery = supabase
         .from('attendance')
         .select(`
           *,
@@ -112,7 +112,14 @@ export default function Attendance() {
             classes (name, code),
             subjects (name, code)
           )
-        `)
+        `);
+
+      // Filter by teacher if user is a teacher
+      if (isTeacher && user?.id) {
+        attendanceQuery = attendanceQuery.eq('teacher_id', user.id);
+      }
+
+      const { data: attendanceData, error: attendanceError } = await attendanceQuery
         .order('absence_date', { ascending: false });
 
       if (attendanceError) throw attendanceError;
@@ -164,7 +171,7 @@ export default function Attendance() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, isTeacher, user?.id]);
 
   useEffect(() => {
     fetchData();

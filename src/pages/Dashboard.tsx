@@ -22,8 +22,16 @@ interface DashboardStats {
   totalEnrollments: number;
 }
 
+interface TeacherStats {
+  myClasses: number;
+  totalStudents: number;
+  pendingGrades: number;
+  attendanceToday: number;
+  uniqueSubjects: number;
+}
+
 export default function Dashboard() {
-  const { profile, isAdmin, isTeacher, isStudent } = useAuth();
+  const { profile, isAdmin, isTeacher, isStudent, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     activeClasses: 0,
@@ -31,7 +39,73 @@ export default function Dashboard() {
     attendanceRate: 0,
     totalEnrollments: 0
   });
+  const [teacherStats, setTeacherStats] = useState<TeacherStats>({
+    myClasses: 0,
+    totalStudents: 0,
+    pendingGrades: 0,
+    attendanceToday: 0,
+    uniqueSubjects: 0
+  });
   const [loading, setLoading] = useState(true);
+
+  const fetchTeacherStats = useCallback(async () => {
+    if (!isTeacher || !user?.id) return;
+
+    try {
+      // Fetch teacher's classes
+      const { data: classSubjects, error: classSubjectsError } = await supabase
+        .from('class_subjects')
+        .select(`
+          id,
+          class_id,
+          subject_id,
+          classes (name, code),
+          subjects (name, code)
+        `)
+        .eq('teacher_id', user.id);
+
+      if (classSubjectsError) throw classSubjectsError;
+
+      // Count total students across all classes
+      let totalStudents = 0;
+      if (classSubjects && classSubjects.length > 0) {
+        const classIds = [...new Set(classSubjects.map(cs => cs.class_id))];
+        const { count } = await supabase
+          .from('class_enrollments')
+          .select('*', { count: 'exact', head: true })
+          .in('class_id', classIds);
+        totalStudents = count || 0;
+      }
+
+      // Count grades without evaluation (pending grades)
+      const { count: pendingGrades } = await supabase
+        .from('grades')
+        .select('*', { count: 'exact', head: true })
+        .eq('teacher_id', user.id)
+        .is('grade_value', null);
+
+      // Count attendance records for today
+      const today = new Date().toISOString().split('T')[0];
+      const { count: attendanceToday } = await supabase
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('teacher_id', user.id)
+        .eq('absence_date', today);
+
+      // Count unique subjects
+      const uniqueSubjects = classSubjects ? [...new Set(classSubjects.map(cs => cs.subject_id))].length : 0;
+
+      setTeacherStats({
+        myClasses: classSubjects?.length || 0,
+        totalStudents,
+        pendingGrades: pendingGrades || 0,
+        attendanceToday: attendanceToday || 0,
+        uniqueSubjects
+      });
+    } catch (error) {
+      console.error('Error fetching teacher stats:', error);
+    }
+  }, [isTeacher, user?.id]);
 
   const fetchDashboardStats = useCallback(async () => {
     if (!isAdmin) {
@@ -97,8 +171,15 @@ export default function Dashboard() {
   }, [isAdmin]);
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, [fetchDashboardStats]);
+    if (isAdmin) {
+      fetchDashboardStats();
+    } else if (isTeacher) {
+      fetchTeacherStats();
+      setLoading(false);
+    } else {
+      setLoading(false);
+    }
+  }, [fetchDashboardStats, fetchTeacherStats, isAdmin, isTeacher]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -246,9 +327,9 @@ export default function Dashboard() {
                 <GraduationCap className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">6</div>
+                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.myClasses}</div>
                 <p className="text-xs text-muted-foreground">
-                  182 alunos no total
+                  {teacherStats.totalStudents} alunos no total
                 </p>
               </CardContent>
             </Card>
@@ -259,22 +340,22 @@ export default function Dashboard() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">4</div>
+                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.attendanceToday}</div>
                 <p className="text-xs text-muted-foreground">
-                  Próxima: 14:00
+                  Registros de hoje
                 </p>
               </CardContent>
             </Card>
             
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Presenças Pendentes</CardTitle>
-                <UserCheck className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Notas Pendentes</CardTitle>
+                <Award className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
+                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.pendingGrades}</div>
                 <p className="text-xs text-muted-foreground">
-                  Aulas para registrar
+                  Notas pendentes
                 </p>
               </CardContent>
             </Card>
@@ -368,9 +449,9 @@ export default function Dashboard() {
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
+                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.uniqueSubjects}</div>
                 <p className="text-xs text-muted-foreground">
-                  Este semestre
+                  Disciplinas que leciona
                 </p>
               </CardContent>
             </Card>

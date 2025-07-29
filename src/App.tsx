@@ -20,6 +20,7 @@ const TeacherCompetencies = lazy(() => import("./pages/TeacherCompetencies"));
 const ClassSubjects = lazy(() => import("./pages/ClassSubjects"));
 const Grades = lazy(() => import("./pages/Grades"));
 const Attendance = lazy(() => import("./pages/Attendance"));
+const MyClasses = lazy(() => import("./pages/MyClasses"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -114,7 +115,7 @@ const App = () => (
               <Route
                 path="/grades"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <ProtectedRoute>
                     <DashboardLayout>
                       <Grades />
                     </DashboardLayout>
@@ -124,9 +125,19 @@ const App = () => (
               <Route
                 path="/attendance"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <ProtectedRoute>
                     <DashboardLayout>
                       <Attendance />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/my-classes"
+                element={
+                  <ProtectedRoute requiredRole="professor">
+                    <DashboardLayout>
+                      <MyClasses />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
