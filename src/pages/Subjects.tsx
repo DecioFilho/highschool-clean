@@ -30,8 +30,7 @@ export default function Subjects() {
 
   const [formData, setFormData] = useState({
     name: '',
-    code: '',
-    description: ''
+    code: ''
   });
 
   const fetchSubjects = useCallback(async () => {
@@ -68,8 +67,7 @@ export default function Subjects() {
           .from('subjects')
           .update({
             name: formData.name,
-            code: formData.code,
-            description: formData.description
+            code: formData.code
           })
           .eq('id', editingSubject.id);
 
@@ -84,8 +82,7 @@ export default function Subjects() {
           .from('subjects')
           .insert([{
             name: formData.name,
-            code: formData.code,
-            description: formData.description
+            code: formData.code
           }]);
 
         if (error) throw error;
@@ -98,7 +95,7 @@ export default function Subjects() {
 
       setIsDialogOpen(false);
       setEditingSubject(null);
-      setFormData({ name: '', code: '', description: '' });
+      setFormData({ name: '', code: '' });
       fetchSubjects();
     } catch (error: unknown) {
       toast({
@@ -115,14 +112,13 @@ export default function Subjects() {
     setEditingSubject(subject);
     setFormData({
       name: subject.name,
-      code: subject.code,
-      description: subject.description || ''
+      code: subject.code
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (subjectId: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta matéria?')) return;
+  const handleDeactivate = async (subjectId: string) => {
+    if (!confirm('Tem certeza que deseja desativar esta matéria?')) return;
 
     try {
       const { error } = await supabase
@@ -147,6 +143,58 @@ export default function Subjects() {
     }
   };
 
+  const handleReactivate = async (subjectId: string) => {
+    if (!confirm('Tem certeza que deseja reativar esta matéria?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .update({ status: 'active' })
+        .eq('id', subjectId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Matéria reativada com sucesso',
+      });
+      
+      fetchSubjects();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao reativar matéria',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeletePermanently = async (subjectId: string) => {
+    if (!confirm('ATENÇÃO: Esta ação irá excluir permanentemente a matéria e todos os dados relacionados. Tem certeza?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .delete()
+        .eq('id', subjectId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Matéria excluída permanentemente',
+      });
+      
+      fetchSubjects();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao excluir matéria permanentemente',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -162,7 +210,7 @@ export default function Subjects() {
             <DialogTrigger asChild>
               <Button onClick={() => {
                 setEditingSubject(null);
-                setFormData({ name: '', code: '', description: '' });
+                setFormData({ name: '', code: '' });
               }}>
                 <Plus className="mr-2 h-4 w-4" />
                 Nova Matéria
@@ -192,16 +240,6 @@ export default function Subjects() {
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                     required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
                   />
                 </div>
                 
@@ -260,13 +298,34 @@ export default function Subjects() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(subject.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {subject.status === 'active' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeactivate(subject.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReactivate(subject.id)}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            Reativar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeletePermanently(subject.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

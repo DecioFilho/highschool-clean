@@ -502,6 +502,7 @@ export default function Grades() {
                       type="date"
                       value={formData.evaluation_date}
                       onChange={(e) => setFormData({ ...formData, evaluation_date: e.target.value })}
+                      autocomplete="off"
                       required
                     />
                   </div>

@@ -122,6 +122,7 @@ export default function Auth() {
                   name="email"
                   type="email"
                   placeholder="seu@email.com"
+                  autocomplete="username"
                   required
                   disabled={isLoading}
                 />
@@ -133,6 +134,7 @@ export default function Auth() {
                     id="signin-password"
                     name="password"
                     type={showPassword ? 'text' : 'password'}
+                    autocomplete="current-password"
                     required
                     disabled={isLoading}
                   />

@@ -7,9 +7,7 @@ import {
   BarChart3,
   Settings,
   Home,
-  UserCheck,
-  BookMarked,
-  Briefcase
+  UserCheck
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
@@ -45,8 +43,6 @@ export function AppSidebar() {
     { title: "Turmas", url: "/classes", icon: GraduationCap },
     { title: "Matérias", url: "/subjects", icon: BookOpen },
     { title: "Matrículas", url: "/enrollments", icon: UserCheck },
-    { title: "Competências", url: "/competencies", icon: Briefcase },
-    { title: "Turma-Disciplinas", url: "/class-subjects", icon: BookMarked },
     { title: "Notas", url: "/grades", icon: ClipboardList },
     { title: "Frequência", url: "/attendance", icon: Calendar },
   ];
@@ -56,7 +52,7 @@ export function AppSidebar() {
     { title: "Minhas Turmas", url: "/my-classes", icon: GraduationCap },
     { title: "Frequência", url: "/attendance", icon: Calendar },
     { title: "Notas", url: "/grades", icon: ClipboardList },
-    { title: "Matérias", url: "/subjects", icon: BookMarked },
+    { title: "Matérias", url: "/subjects", icon: BookOpen },
   ];
 
   const studentItems = [

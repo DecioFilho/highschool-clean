@@ -16,8 +16,6 @@ const Users = lazy(() => import("./pages/Users"));
 const Subjects = lazy(() => import("./pages/Subjects"));
 const Classes = lazy(() => import("./pages/Classes"));
 const Enrollments = lazy(() => import("./pages/Enrollments"));
-const TeacherCompetencies = lazy(() => import("./pages/TeacherCompetencies"));
-const ClassSubjects = lazy(() => import("./pages/ClassSubjects"));
 const Grades = lazy(() => import("./pages/Grades"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyClasses = lazy(() => import("./pages/MyClasses"));
@@ -88,26 +86,6 @@ const App = () => (
                   <ProtectedRoute>
                     <DashboardLayout>
                       <Enrollments />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/competencies"
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <TeacherCompetencies />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/class-subjects"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <DashboardLayout>
-                      <ClassSubjects />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }

@@ -474,6 +474,7 @@ export default function Attendance() {
                       type="date"
                       value={formData.absence_date}
                       onChange={(e) => setFormData({ ...formData, absence_date: e.target.value })}
+                      autocomplete="off"
                       required
                     />
                   </div>

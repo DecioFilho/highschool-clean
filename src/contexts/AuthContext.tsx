@@ -42,14 +42,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           // Fetch user profile
           setTimeout(async () => {
-            const { data: profileData } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            
-            if (profileData) {
-              setProfile(profileData);
+            try {
+              const { data: profileData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (error) {
+                console.error('Error fetching profile:', error);
+                // If no profile found, user exists in auth but not in users table
+                if (error.code === 'PGRST116') {
+                  console.log('User profile not found in users table');
+                }
+                setProfile(null);
+                return;
+              }
+              
+              if (profileData) {
+                setProfile(profileData);
+              }
+            } catch (error) {
+              console.error('Error in profile fetch:', error);
             }
           }, 0);
         } else {
@@ -67,16 +81,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (session?.user) {
         setTimeout(async () => {
-          const { data: profileData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profileData) {
-            setProfile(profileData);
+          try {
+            const { data: profileData, error } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (error) {
+              console.error('Error fetching profile on session check:', error);
+              // If no profile found, user exists in auth but not in users table
+              if (error.code === 'PGRST116') {
+                console.log('User profile not found in users table during session check');
+              }
+              setProfile(null);
+              setLoading(false);
+              return;
+            }
+            
+            if (profileData) {
+              setProfile(profileData);
+            }
+            setLoading(false);
+          } catch (error) {
+            console.error('Error in session profile fetch:', error);
+            setLoading(false);
           }
-          setLoading(false);
         }, 0);
       } else {
         setLoading(false);
@@ -95,20 +125,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: 'admin' | 'professor' | 'aluno' = 'aluno') => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-          role: role
+    try {
+      // Store current session to restore later
+      const currentSession = session;
+      
+      // Create user using regular signUp but don't log them in
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: role
+          }
+        }
+      });
+
+      if (authError) {
+        return { error: authError };
+      }
+
+      // If user was created successfully, create the profile in the users table
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([{
+            id: authData.user.id,
+            email: email,
+            full_name: fullName,
+            role: role,
+            status: 'active',
+            student_registration: role === 'aluno' ? authData.user.id : null
+          }]);
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          return { error: profileError };
         }
       }
-    });
-    return { error };
+
+      // Restore the current session to prevent logging in as the new user
+      if (currentSession && currentSession.access_token) {
+        await supabase.auth.setSession({
+          access_token: currentSession.access_token,
+          refresh_token: currentSession.refresh_token
+        });
+      }
+
+      return { error: null };
+    } catch (error: unknown) {
+      return { error };
+    }
   };
 
   const signOut = async () => {

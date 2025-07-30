@@ -30,6 +30,14 @@ interface TeacherStats {
   uniqueSubjects: number;
 }
 
+interface RecentActivity {
+  id: string;
+  type: 'user_created' | 'class_created' | 'grade_added' | 'enrollment_created';
+  description: string;
+  time: string;
+  user?: string;
+}
+
 export default function Dashboard() {
   const { profile, isAdmin, isTeacher, isStudent, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
@@ -46,6 +54,7 @@ export default function Dashboard() {
     attendanceToday: 0,
     uniqueSubjects: 0
   });
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTeacherStats = useCallback(async () => {
@@ -106,6 +115,80 @@ export default function Dashboard() {
       console.error('Error fetching teacher stats:', error);
     }
   }, [isTeacher, user?.id]);
+
+  const fetchRecentActivities = useCallback(async () => {
+    if (!isAdmin) return;
+
+    try {
+      const activities: RecentActivity[] = [];
+      const now = new Date();
+      
+      // Recent users (last 7 days)
+      const { data: recentUsers } = await supabase
+        .from('users')
+        .select('id, full_name, role, created_at')
+        .gte('created_at', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      recentUsers?.forEach(user => {
+        activities.push({
+          id: user.id,
+          type: 'user_created',
+          description: `${user.role === 'professor' ? 'Professor' : user.role === 'aluno' ? 'Aluno' : 'Admin'} cadastrado: ${user.full_name}`,
+          time: user.created_at,
+          user: user.full_name
+        });
+      });
+
+      // Recent classes (last 7 days)
+      const { data: recentClasses } = await supabase
+        .from('classes')
+        .select('id, name, code, created_at')
+        .gte('created_at', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      recentClasses?.forEach(cls => {
+        activities.push({
+          id: cls.id,
+          type: 'class_created',
+          description: `Nova turma criada: ${cls.name} (${cls.code})`,
+          time: cls.created_at
+        });
+      });
+
+      // Recent enrollments (last 7 days)
+      const { data: recentEnrollments } = await supabase
+        .from('class_enrollments')
+        .select(`
+          id, enrollment_date,
+          student:users!class_enrollments_student_id_fkey(full_name),
+          class:classes!class_enrollments_class_id_fkey(name)
+        `)
+        .gte('enrollment_date', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('enrollment_date', { ascending: false })
+        .limit(2);
+
+      recentEnrollments?.forEach(enrollment => {
+        activities.push({
+          id: enrollment.id,
+          type: 'enrollment_created',
+          description: `Matrícula realizada: ${enrollment.student.full_name} em ${enrollment.class.name}`,
+          time: enrollment.enrollment_date
+        });
+      });
+
+      // Sort all activities by time and limit to 5 most recent
+      const sortedActivities = activities
+        .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+        .slice(0, 5);
+
+      setRecentActivities(sortedActivities);
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+    }
+  }, [isAdmin]);
 
   const fetchDashboardStats = useCallback(async () => {
     if (!isAdmin) {
@@ -173,19 +256,48 @@ export default function Dashboard() {
   useEffect(() => {
     if (isAdmin) {
       fetchDashboardStats();
+      fetchRecentActivities();
     } else if (isTeacher) {
       fetchTeacherStats();
       setLoading(false);
     } else {
       setLoading(false);
     }
-  }, [fetchDashboardStats, fetchTeacherStats, isAdmin, isTeacher]);
+  }, [fetchDashboardStats, fetchTeacherStats, fetchRecentActivities, isAdmin, isTeacher]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Bom dia';
     if (hour < 18) return 'Boa tarde';
     return 'Boa noite';
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 60) {
+      return `há ${diffInMinutes} minuto${diffInMinutes !== 1 ? 's' : ''}`;
+    }
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return `há ${diffInHours} hora${diffInHours !== 1 ? 's' : ''}`;
+    }
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `há ${diffInDays} dia${diffInDays !== 1 ? 's' : ''}`;
+  };
+
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case 'user_created': return 'bg-blue-500';
+      case 'class_created': return 'bg-green-500';
+      case 'grade_added': return 'bg-yellow-500';
+      case 'enrollment_created': return 'bg-purple-500';
+      default: return 'bg-gray-500';
+    }
   };
 
   const getRoleSpecificContent = () => {
@@ -288,27 +400,33 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <div className="text-sm">
-                      <p className="font-medium">Nova turma criada</p>
-                      <p className="text-muted-foreground">3º Ano A - há 2 horas</p>
+                  {loading ? (
+                    <div className="space-y-3">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="w-2 h-2 bg-muted rounded-full animate-pulse"></div>
+                          <div className="space-y-1 flex-1">
+                            <div className="h-4 bg-muted rounded animate-pulse"></div>
+                            <div className="h-3 bg-muted rounded animate-pulse w-2/3"></div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <div className="text-sm">
-                      <p className="font-medium">Professor cadastrado</p>
-                      <p className="text-muted-foreground">Maria Silva - há 4 horas</p>
+                  ) : recentActivities.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p>Nenhuma atividade recente</p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    <div className="text-sm">
-                      <p className="font-medium">Sistema atualizado</p>
-                      <p className="text-muted-foreground">Versão 2.1.0 - ontem</p>
-                    </div>
-                  </div>
+                  ) : (
+                    recentActivities.map((activity) => (
+                      <div key={activity.id} className="flex items-center gap-3">
+                        <div className={`w-2 h-2 ${getActivityColor(activity.type)} rounded-full`}></div>
+                        <div className="text-sm">
+                          <p className="font-medium">{activity.description}</p>
+                          <p className="text-muted-foreground">{getTimeAgo(activity.time)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
