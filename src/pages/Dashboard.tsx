@@ -30,6 +30,12 @@ interface TeacherStats {
   uniqueSubjects: number;
 }
 
+interface StudentStats {
+  attendanceRate: number;
+  averageGrade: number;
+  totalSubjects: number;
+}
+
 interface RecentActivity {
   id: string;
   type: 'user_created' | 'class_created' | 'grade_added' | 'enrollment_created';
@@ -53,6 +59,11 @@ export default function Dashboard() {
     pendingGrades: 0,
     attendanceToday: 0,
     uniqueSubjects: 0
+  });
+  const [studentStats, setStudentStats] = useState<StudentStats>({
+    attendanceRate: 0,
+    averageGrade: 0,
+    totalSubjects: 0
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,6 +264,70 @@ export default function Dashboard() {
     }
   }, [isAdmin]);
 
+  const fetchStudentStats = useCallback(async () => {
+    if (!isStudent || !user?.id) return;
+
+    try {
+      // Fetch student's grades and calculate average with weights
+      const { data: gradesData } = await supabase
+        .from('grades')
+        .select('grade_value, grade_type')
+        .eq('student_id', user.id);
+
+      let totalWeightedGrade = 0;
+      let totalWeight = 0;
+
+      if (gradesData && gradesData.length > 0) {
+        gradesData.forEach(grade => {
+          let weight = 1; // default weight
+          switch (grade.grade_type) {
+            case 'prova':
+              weight = 3;
+              break;
+            case 'trabalho':
+              weight = 2;
+              break;
+            case 'recuperacao':
+              weight = 5;
+              break;
+            default:
+              weight = 1;
+          }
+          totalWeightedGrade += grade.grade_value * weight;
+          totalWeight += weight;
+        });
+      }
+
+      const averageGrade = totalWeight > 0 ? totalWeightedGrade / totalWeight : 0;
+
+      // Fetch student's attendance data
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('absence_count')
+        .eq('student_id', user.id);
+
+      // Calculate total classes (estimate based on enrollments and time)
+      const { data: enrollmentsData } = await supabase
+        .from('class_enrollments')
+        .select('class_id')
+        .eq('student_id', user.id)
+        .eq('status', 'active');
+
+      const totalClasses = (enrollmentsData?.length || 0) * 20; // Estimate 20 classes per subject
+      const totalAbsences = attendanceData?.reduce((sum, record) => sum + record.absence_count, 0) || 0;
+      const attendanceRate = totalClasses > 0 ? Math.max(0, ((totalClasses - totalAbsences) / totalClasses) * 100) : 100;
+
+      setStudentStats({
+        attendanceRate: Math.round(attendanceRate),
+        averageGrade: averageGrade,
+        totalSubjects: enrollmentsData?.length || 0
+      });
+
+    } catch (error) {
+      console.error('Error fetching student stats:', error);
+    }
+  }, [isStudent, user?.id]);
+
   useEffect(() => {
     if (isAdmin) {
       fetchDashboardStats();
@@ -260,10 +335,13 @@ export default function Dashboard() {
     } else if (isTeacher) {
       fetchTeacherStats();
       setLoading(false);
+    } else if (isStudent) {
+      fetchStudentStats();
+      setLoading(false);
     } else {
       setLoading(false);
     }
-  }, [fetchDashboardStats, fetchTeacherStats, fetchRecentActivities, isAdmin, isTeacher]);
+  }, [fetchDashboardStats, fetchTeacherStats, fetchRecentActivities, fetchStudentStats, isAdmin, isTeacher, isStudent]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -438,7 +516,7 @@ export default function Dashboard() {
     if (isTeacher) {
       return (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-1">
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Minhas Turmas</CardTitle>
@@ -451,102 +529,30 @@ export default function Dashboard() {
                 </p>
               </CardContent>
             </Card>
-            
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Aulas Hoje</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.attendanceToday}</div>
-                <p className="text-xs text-muted-foreground">
-                  Registros de hoje
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Notas Pendentes</CardTitle>
-                <Award className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.pendingGrades}</div>
-                <p className="text-xs text-muted-foreground">
-                  Notas pendentes
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Notas Lançadas</CardTitle>
-                <Award className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">85%</div>
-                <p className="text-xs text-muted-foreground">
-                  Meta: 100%
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-1">
             <Card>
               <CardHeader>
-                <CardTitle>Turmas de Hoje</CardTitle>
+                <CardTitle>Ações Rápidas</CardTitle>
                 <CardDescription>
-                  Suas aulas programadas para hoje
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">1º Ano A - Matemática</p>
-                      <p className="text-sm text-muted-foreground">30 alunos</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">08:00 - 08:50</p>
-                      <p className="text-sm text-green-600">Concluída</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">2º Ano B - Matemática</p>
-                      <p className="text-sm text-muted-foreground">28 alunos</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">14:00 - 14:50</p>
-                      <p className="text-sm text-blue-600">Próxima</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Ações Pendentes</CardTitle>
-                <CardDescription>
-                  Tarefas que precisam da sua atenção
+                  Funcionalidades principais para professores
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <Link to="/attendance" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
+                  <Link to="/my-classes" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
                     <Calendar className="h-5 w-5 text-orange-500" />
                     <div>
                       <p className="font-medium">Registrar frequência</p>
-                      <p className="text-sm text-muted-foreground">3 aulas pendentes</p>
+                      <p className="text-sm text-muted-foreground">Acesse suas turmas</p>
                     </div>
                   </Link>
-                  <Link to="/grades" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
+                  <Link to="/my-classes" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
                     <Award className="h-5 w-5 text-blue-500" />
                     <div>
                       <p className="font-medium">Lançar notas</p>
-                      <p className="text-sm text-muted-foreground">Avaliação mensal</p>
+                      <p className="text-sm text-muted-foreground">Acesse suas turmas</p>
                     </div>
                   </Link>
                 </div>
@@ -560,29 +566,16 @@ export default function Dashboard() {
     if (isStudent) {
       return (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Matérias</CardTitle>
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.uniqueSubjects}</div>
-                <p className="text-xs text-muted-foreground">
-                  Disciplinas que leciona
-                </p>
-              </CardContent>
-            </Card>
-            
+          <div className="grid gap-4 md:grid-cols-2">
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Frequência</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">92%</div>
-                <p className="text-xs text-success">
-                  Acima da média
+                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : `${studentStats.attendanceRate}%`}</div>
+                <p className={`text-xs ${studentStats.attendanceRate >= 75 ? 'text-green-600' : studentStats.attendanceRate >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                  {studentStats.attendanceRate >= 75 ? 'Boa frequência' : studentStats.attendanceRate >= 60 ? 'Atenção necessária' : 'Frequência baixa'}
                 </p>
               </CardContent>
             </Card>
@@ -593,90 +586,43 @@ export default function Dashboard() {
                 <Award className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">8.5</div>
-                <p className="text-xs text-success">
-                  Bom desempenho
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Próximas Aulas</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">5</div>
-                <p className="text-xs text-muted-foreground">
-                  Hoje
+                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : studentStats.averageGrade.toFixed(1)}</div>
+                <p className={`text-xs ${studentStats.averageGrade >= 7 ? 'text-green-600' : studentStats.averageGrade >= 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                  {studentStats.averageGrade >= 7 ? 'Bom desempenho' : studentStats.averageGrade >= 5 ? 'Precisa melhorar' : 'Atenção urgente'}
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-4 md:grid-cols-1">
+            <Card className={`border-l-4 ${studentStats.averageGrade >= 7 ? 'border-l-green-500 bg-green-50' : studentStats.averageGrade >= 5 ? 'border-l-yellow-500 bg-yellow-50' : 'border-l-red-500 bg-red-50'}`}>
               <CardHeader>
-                <CardTitle>Próximas Aulas</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className={`h-5 w-5 ${studentStats.averageGrade >= 7 ? 'text-green-600' : studentStats.averageGrade >= 5 ? 'text-yellow-600' : 'text-red-600'}`} />
+                  Status Acadêmico
+                </CardTitle>
                 <CardDescription>
-                  Sua agenda de hoje
+                  Situação atual do semestre
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Matemática</p>
-                      <p className="text-sm text-muted-foreground">Prof. João Silva</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">14:00</p>
-                      <p className="text-sm text-blue-600">Sala 201</p>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={`text-lg font-bold ${studentStats.averageGrade >= 7 ? 'text-green-700' : studentStats.averageGrade >= 5 ? 'text-yellow-700' : 'text-red-700'}`}>
+                      {studentStats.averageGrade >= 7 ? '✅ APROVADO' : studentStats.averageGrade >= 5 ? '⚠️ EM RECUPERAÇÃO' : '❌ REPROVADO'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Média necessária para aprovação: 7.0
+                    </p>
+                    {studentStats.averageGrade < 7 && (
+                      <p className="text-sm text-muted-foreground">
+                        Precisa de {(7 - studentStats.averageGrade).toFixed(1)} pontos para aprovação
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">História</p>
-                      <p className="text-sm text-muted-foreground">Prof. Maria Costa</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">15:00</p>
-                      <p className="text-sm text-blue-600">Sala 105</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Últimas Notas</CardTitle>
-                <CardDescription>
-                  Avaliações recentes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Matemática - Prova</p>
-                      <p className="text-sm text-muted-foreground">15/03/2024</p>
-                    </div>
-                    <div className="text-lg font-bold text-green-600">9.0</div>
-                  </div>
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">História - Trabalho</p>
-                      <p className="text-sm text-muted-foreground">12/03/2024</p>
-                    </div>
-                    <div className="text-lg font-bold text-green-600">8.5</div>
-                  </div>
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Português - Redação</p>
-                      <p className="text-sm text-muted-foreground">10/03/2024</p>
-                    </div>
-                    <div className="text-lg font-bold text-orange-600">7.0</div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">{studentStats.averageGrade.toFixed(1)}</p>
+                    <p className="text-sm text-muted-foreground">Média atual</p>
                   </div>
                 </div>
               </CardContent>

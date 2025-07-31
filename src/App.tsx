@@ -19,6 +19,11 @@ const Enrollments = lazy(() => import("./pages/Enrollments"));
 const Grades = lazy(() => import("./pages/Grades"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const MyClasses = lazy(() => import("./pages/MyClasses"));
+const ClassStudents = lazy(() => import("./pages/teacher/ClassStudents"));
+const TeacherGrades = lazy(() => import("./pages/teacher/TeacherGrades"));
+const TeacherAttendance = lazy(() => import("./pages/teacher/TeacherAttendance"));
+const StudentGrades = lazy(() => import("./pages/student/StudentGrades"));
+const StudentAttendance = lazy(() => import("./pages/student/StudentAttendance"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -116,6 +121,56 @@ const App = () => (
                   <ProtectedRoute requiredRole="professor">
                     <DashboardLayout>
                       <MyClasses />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/class/:classId/students"
+                element={
+                  <ProtectedRoute requiredRole="professor">
+                    <DashboardLayout>
+                      <ClassStudents />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/class/:classId/grades"
+                element={
+                  <ProtectedRoute requiredRole="professor">
+                    <DashboardLayout>
+                      <TeacherGrades />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/class/:classId/attendance"
+                element={
+                  <ProtectedRoute requiredRole="professor">
+                    <DashboardLayout>
+                      <TeacherAttendance />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/student/grades"
+                element={
+                  <ProtectedRoute requiredRole="aluno">
+                    <DashboardLayout>
+                      <StudentGrades />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/student/attendance"
+                element={
+                  <ProtectedRoute requiredRole="aluno">
+                    <DashboardLayout>
+                      <StudentAttendance />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }

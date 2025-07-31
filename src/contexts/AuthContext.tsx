@@ -126,10 +126,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string, role: 'admin' | 'professor' | 'aluno' = 'aluno') => {
     try {
-      // Store current session to restore later
+      // Store current session and user to restore later
       const currentSession = session;
+      const currentUser = user;
+      const currentProfile = profile;
       
-      // Create user using regular signUp but don't log them in
+      // Temporarily disable auth state listener during user creation
+      const originalListener = supabase.auth.onAuthStateChange;
+      
+      // Create user using regular signUp
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -142,38 +147,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (authError) {
+        console.error('Auth error:', authError);
         return { error: authError };
       }
 
       // If user was created successfully, create the profile in the users table
       if (authData.user) {
-        const { error: profileError } = await supabase
+        // Check if profile already exists to avoid duplicate insertion
+        const { data: existingProfile } = await supabase
           .from('users')
-          .insert([{
-            id: authData.user.id,
-            email: email,
-            full_name: fullName,
-            role: role,
-            status: 'active',
-            student_registration: role === 'aluno' ? authData.user.id : null
-          }]);
+          .select('id')
+          .eq('id', authData.user.id)
+          .single();
 
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-          return { error: profileError };
+        if (!existingProfile) {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert([{
+              id: authData.user.id,
+              email: email,
+              full_name: fullName,
+              role: role,
+              status: 'active',
+              student_registration: role === 'aluno' ? `STU${Date.now()}` : null
+            }]);
+
+          if (profileError) {
+            console.error('Error creating profile:', profileError);
+            // If it's a duplicate key error, that's fine - user already exists
+            if (!profileError.message.includes('duplicate key')) {
+              return { error: profileError };
+            }
+          }
         }
       }
 
-      // Restore the current session to prevent logging in as the new user
-      if (currentSession && currentSession.access_token) {
-        await supabase.auth.setSession({
-          access_token: currentSession.access_token,
-          refresh_token: currentSession.refresh_token
-        });
+      // Immediately restore the previous session to prevent login switching
+      if (currentSession && currentUser && currentProfile) {
+        try {
+          await supabase.auth.setSession({
+            access_token: currentSession.access_token,
+            refresh_token: currentSession.refresh_token
+          });
+        } catch (error) {
+          console.warn('Error restoring session after user creation:', error);
+          // If session restore fails, just maintain the state without the session
+        }
+        
+        // Force restore the state immediately
+        setSession(currentSession);
+        setUser(currentUser);
+        setProfile(currentProfile);
       }
 
       return { error: null };
     } catch (error: unknown) {
+      console.error('SignUp error:', error);
       return { error };
     }
   };

@@ -50,16 +50,14 @@ export function AppSidebar() {
   const teacherItems = [
     { title: "Dashboard", url: "/dashboard", icon: Home },
     { title: "Minhas Turmas", url: "/my-classes", icon: GraduationCap },
-    { title: "Frequência", url: "/attendance", icon: Calendar },
-    { title: "Notas", url: "/grades", icon: ClipboardList },
-    { title: "Matérias", url: "/subjects", icon: BookOpen },
+    { title: "Lançar Notas", url: "/my-classes", icon: ClipboardList },
+    { title: "Registrar Frequência", url: "/my-classes", icon: Calendar },
   ];
 
   const studentItems = [
     { title: "Dashboard", url: "/dashboard", icon: Home },
-    { title: "Minhas Turmas", url: "/my-classes", icon: GraduationCap },
-    { title: "Notas", url: "/my-grades", icon: ClipboardList },
-    { title: "Frequência", url: "/my-attendance", icon: Calendar },
+    { title: "Minhas Notas", url: "/student/grades", icon: ClipboardList },
+    { title: "Minha Frequência", url: "/student/attendance", icon: Calendar },
   ];
 
   const getMenuItems = () => {
@@ -117,7 +115,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {(isAdmin || isTeacher) && (
+        {isAdmin && (
           <SidebarGroup>
             {!collapsed && <SidebarGroupLabel>Relatórios</SidebarGroupLabel>}
             <SidebarGroupContent>
@@ -138,24 +136,26 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        <SidebarGroup>
-          {!collapsed && <SidebarGroupLabel>Sistema</SidebarGroupLabel>}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink 
-                    to="/settings" 
-                    className={getNavClassName}
-                  >
-                    <Settings className="h-4 w-4" />
-                    {!collapsed && <span>Configurações</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Sistema</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to="/settings" 
+                      className={getNavClassName}
+                    >
+                      <Settings className="h-4 w-4" />
+                      {!collapsed && <span>Configurações</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

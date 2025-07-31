@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { BookMarked, Users, Clock, GraduationCap } from 'lucide-react';
+import { BookMarked, Users, Clock, GraduationCap, Calendar } from 'lucide-react';
 
 interface MyClass {
   id: string;
@@ -33,6 +34,7 @@ export default function MyClasses() {
   const [loading, setLoading] = useState(true);
   const { user, isTeacher } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchMyClasses = useCallback(async () => {
     if (!user?.id || !isTeacher) return;
@@ -202,13 +204,23 @@ export default function MyClasses() {
                   )}
 
                   <div className="flex gap-2 pt-3">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Users className="h-4 w-4 mr-1" />
-                      Ver Alunos
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => navigate(`/teacher/class/${classItem.class_id}/grades`)}
+                    >
                       <BookMarked className="h-4 w-4 mr-1" />
-                      Notas
+                      Lançar Notas
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => navigate(`/teacher/class/${classItem.class_id}/attendance`)}
+                    >
+                      <Calendar className="h-4 w-4 mr-1" />
+                      Lançar Faltas
                     </Button>
                   </div>
                 </div>
