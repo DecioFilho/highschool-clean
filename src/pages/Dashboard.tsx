@@ -285,10 +285,7 @@ export default function Dashboard() {
               weight = 3;
               break;
             case 'trabalho':
-              weight = 2;
-              break;
-            case 'recuperacao':
-              weight = 5;
+              weight = 7;
               break;
             default:
               weight = 1;
@@ -587,47 +584,42 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : studentStats.averageGrade.toFixed(1)}</div>
-                <p className={`text-xs ${studentStats.averageGrade >= 7 ? 'text-green-600' : studentStats.averageGrade >= 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {studentStats.averageGrade >= 7 ? 'Bom desempenho' : studentStats.averageGrade >= 5 ? 'Precisa melhorar' : 'Atenção urgente'}
+                <p className="text-xs text-muted-foreground">
+                  Média geral das matérias
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-1">
-            <Card className={`border-l-4 ${studentStats.averageGrade >= 7 ? 'border-l-green-500 bg-green-50' : studentStats.averageGrade >= 5 ? 'border-l-yellow-500 bg-yellow-50' : 'border-l-red-500 bg-red-50'}`}>
+          <div className="mt-6">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className={`h-5 w-5 ${studentStats.averageGrade >= 7 ? 'text-green-600' : studentStats.averageGrade >= 5 ? 'text-yellow-600' : 'text-red-600'}`} />
-                  Status Acadêmico
-                </CardTitle>
+                <CardTitle>Ações Rápidas</CardTitle>
                 <CardDescription>
-                  Situação atual do semestre
+                  Acesse suas informações acadêmicas
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-lg font-bold ${studentStats.averageGrade >= 7 ? 'text-green-700' : studentStats.averageGrade >= 5 ? 'text-yellow-700' : 'text-red-700'}`}>
-                      {studentStats.averageGrade >= 7 ? '✅ APROVADO' : studentStats.averageGrade >= 5 ? '⚠️ EM RECUPERAÇÃO' : '❌ REPROVADO'}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Média necessária para aprovação: 7.0
-                    </p>
-                    {studentStats.averageGrade < 7 && (
-                      <p className="text-sm text-muted-foreground">
-                        Precisa de {(7 - studentStats.averageGrade).toFixed(1)} pontos para aprovação
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">{studentStats.averageGrade.toFixed(1)}</p>
-                    <p className="text-sm text-muted-foreground">Média atual</p>
-                  </div>
+                <div className="space-y-3">
+                  <Link to="/student/grades" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
+                    <Award className="h-5 w-5 text-blue-500" />
+                    <div>
+                      <p className="font-medium">Ver Minhas Matérias</p>
+                      <p className="text-sm text-muted-foreground">Notas e situação por matéria</p>
+                    </div>
+                  </Link>
+                  <Link to="/student/attendance" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
+                    <Calendar className="h-5 w-5 text-orange-500" />
+                    <div>
+                      <p className="font-medium">Frequência Geral</p>
+                      <p className="text-sm text-muted-foreground">Histórico de faltas</p>
+                    </div>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
           </div>
+
         </>
       );
     }

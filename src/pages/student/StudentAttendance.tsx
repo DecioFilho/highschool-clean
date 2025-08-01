@@ -1,115 +1,97 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, CheckCircle, ChevronRight, AlertCircle } from 'lucide-react';
 
-interface AttendanceRecord {
-  id: string;
-  absence_date: string;
-  absence_count: number;
-  justified: boolean;
-  justification: string | null;
+interface SubjectAttendanceSummary {
   class_subject_id: string;
   subject_name: string;
   subject_code: string;
   class_name: string;
   teacher_name: string;
-}
-
-interface Subject {
-  subject_id: string;
-  subject_name: string;
-  subject_code: string;
   total_absences: number;
   justified_absences: number;
   unjustified_absences: number;
+  total_records: number;
 }
 
 export default function StudentAttendance() {
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<SubjectAttendanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const { user, isStudent } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const fetchAttendance = useCallback(async () => {
+  const fetchSubjects = useCallback(async () => {
     if (!user?.id || !isStudent) return;
 
     try {
-      // Fetch all attendance records for the current student
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance')
+      // Fetch all subjects the student is enrolled in
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from('class_enrollments')
         .select(`
-          id,
-          absence_date,
-          absence_count,
-          justified,
-          justification,
-          class_subject_id,
-          class_subjects (
-            subjects (name, code),
-            classes (name),
-            users (full_name)
+          classes (
+            id,
+            name,
+            class_subjects (
+              id,
+              subjects (name, code),
+              users (full_name)
+            )
           )
         `)
         .eq('student_id', user.id)
-        .order('absence_date', { ascending: false });
+        .eq('status', 'active');
 
-      if (attendanceError) throw attendanceError;
+      if (enrollmentError) throw enrollmentError;
 
-      // Transform data for easier use
-      const transformedRecords = attendanceData?.map(record => ({
-        id: record.id,
-        absence_date: record.absence_date,
-        absence_count: record.absence_count,
-        justified: record.justified,
-        justification: record.justification,
-        class_subject_id: record.class_subject_id,
-        subject_name: record.class_subjects.subjects.name,
-        subject_code: record.class_subjects.subjects.code,
-        class_name: record.class_subjects.classes.name,
-        teacher_name: record.class_subjects.users.full_name
-      })) || [];
+      const subjectSummaries: SubjectAttendanceSummary[] = [];
 
-      setAttendanceRecords(transformedRecords);
-
-      // Calculate statistics by subject
-      const subjectStats = transformedRecords.reduce((acc: { [key: string]: Subject }, record) => {
-        const key = record.subject_name;
+      for (const enrollment of enrollmentData || []) {
+        const classData = enrollment.classes;
         
-        if (!acc[key]) {
-          acc[key] = {
-            subject_id: record.class_subject_id,
-            subject_name: record.subject_name,
-            subject_code: record.subject_code,
-            total_absences: 0,
-            justified_absences: 0,
-            unjustified_absences: 0
-          };
+        // Process each class subject for this enrollment
+        for (const classSubject of classData.class_subjects || []) {
+          // Fetch attendance records for this subject
+          const { data: attendanceData, error: attendanceError } = await supabase
+            .from('attendance')
+            .select('absence_count, justified')
+            .eq('student_id', user.id)
+            .eq('class_subject_id', classSubject.id);
+
+          if (attendanceError) throw attendanceError;
+
+          // Calculate attendance statistics
+          const records = attendanceData || [];
+          const total_absences = records.reduce((sum, record) => sum + record.absence_count, 0);
+          const justified_absences = records
+            .filter(record => record.justified)
+            .reduce((sum, record) => sum + record.absence_count, 0);
+
+          subjectSummaries.push({
+            class_subject_id: classSubject.id,
+            subject_name: classSubject.subjects.name,
+            subject_code: classSubject.subjects.code,
+            class_name: classData.name,
+            teacher_name: classSubject.users?.full_name || 'Professor não atribuído',
+            total_absences: total_absences,
+            justified_absences: justified_absences,
+            unjustified_absences: total_absences - justified_absences,
+            total_records: records.length
+          });
         }
-        
-        acc[key].total_absences += record.absence_count;
-        if (record.justified) {
-          acc[key].justified_absences += record.absence_count;
-        } else {
-          acc[key].unjustified_absences += record.absence_count;
-        }
-        
-        return acc;
-      }, {});
+      }
 
-      setSubjects(Object.values(subjectStats));
+      setSubjects(subjectSummaries);
     } catch (error) {
-      console.error('Error fetching attendance:', error);
+      console.error('Error fetching subjects:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao carregar sua frequência',
+        description: 'Erro ao carregar suas matérias',
         variant: 'destructive',
       });
     } finally {
@@ -118,28 +100,13 @@ export default function StudentAttendance() {
   }, [user?.id, isStudent, toast]);
 
   useEffect(() => {
-    fetchAttendance();
-  }, [fetchAttendance]);
+    fetchSubjects();
+  }, [fetchSubjects]);
 
-  // Filter records by selected subject
-  const filteredRecords = selectedSubject === 'all' 
-    ? attendanceRecords 
-    : attendanceRecords.filter(record => record.subject_name === selectedSubject);
-
-  // Calculate totals for filtered records
-  const totalAbsences = filteredRecords.reduce((sum, record) => sum + record.absence_count, 0);
-  const justifiedAbsences = filteredRecords
-    .filter(record => record.justified)
-    .reduce((sum, record) => sum + record.absence_count, 0);
-  const unjustifiedAbsences = totalAbsences - justifiedAbsences;
-
-  const getStatusColor = (justified: boolean) => {
-    return justified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-  };
-
-  const getStatusIcon = (justified: boolean) => {
-    return justified ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />;
-  };
+  // Calculate overall statistics
+  const totalAbsences = subjects.reduce((sum, subject) => sum + subject.total_absences, 0);
+  const totalJustified = subjects.reduce((sum, subject) => sum + subject.justified_absences, 0);
+  const totalUnjustified = subjects.reduce((sum, subject) => sum + subject.unjustified_absences, 0);
 
   if (!isStudent) {
     return (
@@ -179,166 +146,98 @@ export default function StudentAttendance() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Resumo de Frequência</CardTitle>
+            <CardDescription>
+              Clique em uma matéria abaixo para ver detalhes da frequência
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary">{totalAbsences}</div>
                 <div className="text-sm text-muted-foreground">Total de Faltas</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{justifiedAbsences}</div>
+                <div className="text-2xl font-bold text-green-600">{totalJustified}</div>
                 <div className="text-sm text-muted-foreground">Faltas Justificadas</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{unjustifiedAbsences}</div>
+                <div className="text-2xl font-bold text-red-600">{totalUnjustified}</div>
                 <div className="text-sm text-muted-foreground">Faltas Não Justificadas</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{subjects.length}</div>
-                <div className="text-sm text-muted-foreground">Disciplinas</div>
-              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filter */}
-      <div className="mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium">Filtrar por disciplina:</label>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger className="w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as disciplinas</SelectItem>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject.subject_id} value={subject.subject_name}>
-                      {subject.subject_name} ({subject.subject_code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Subject Statistics (when a specific subject is selected) */}
-      {selectedSubject !== 'all' && (
-        <div className="mb-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Estatísticas - {selectedSubject}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {subjects.filter(s => s.subject_name === selectedSubject).map(subject => (
-                <div key={subject.subject_id} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-primary">{subject.total_absences}</div>
-                    <div className="text-sm text-muted-foreground">Total de Faltas</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-green-600">{subject.justified_absences}</div>
-                    <div className="text-sm text-muted-foreground">Justificadas</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-red-600">{subject.unjustified_absences}</div>
-                    <div className="text-sm text-muted-foreground">Não Justificadas</div>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Attendance Records Table */}
-      {filteredRecords.length === 0 ? (
+      {/* Subjects List */}
+      {subjects.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
             <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma falta registrada</h3>
+            <h3 className="text-lg font-semibold mb-2">Nenhuma matéria encontrada</h3>
             <p className="text-muted-foreground">
-              {selectedSubject === 'all' 
-                ? 'Parabéns! Você não possui faltas registradas.'
-                : `Você não possui faltas em ${selectedSubject}.`
-              }
+              Você ainda não está matriculado em nenhuma matéria.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {selectedSubject === 'all' ? 'Todas as Faltas' : `Faltas - ${selectedSubject}`}
-            </CardTitle>
-            <CardDescription>
-              Registro de faltas organizadas por data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Disciplina</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Justificativa</TableHead>
-                  <TableHead>Professor</TableHead>
-                  <TableHead>Turma</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>
-                      {new Date(record.absence_date + 'T00:00:00').toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{record.subject_name}</div>
-                        <div className="text-sm text-muted-foreground">{record.subject_code}</div>
+        <div className="grid gap-4">
+          {subjects.map((subject) => (
+            <Card 
+              key={subject.class_subject_id} 
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => navigate(`/student/subject/${subject.class_subject_id}/attendance`)}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold">{subject.subject_name}</h3>
+                      <Badge variant="outline">{subject.subject_code}</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      <p><strong>Turma:</strong> {subject.class_name}</p>
+                      <p><strong>Professor(a):</strong> {subject.teacher_name}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Total de faltas: </span>
+                        <span className="font-medium">{subject.total_absences}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {record.absence_count} falta{record.absence_count > 1 ? 's' : ''}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(record.justified)}>
-                        <div className="flex items-center gap-1">
-                          {getStatusIcon(record.justified)}
-                          {record.justified ? 'Justificada' : 'Não Justificada'}
-                        </div>
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs">
-                      {record.justified && record.justification ? (
-                        <div className="text-sm">
-                          {record.justification}
-                        </div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Justificadas: </span>
+                        <span className="font-medium text-green-600">{subject.justified_absences}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Não justificadas: </span>
+                        <span className={`font-medium ${subject.unjustified_absences > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {subject.unjustified_absences}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      {subject.total_absences === 0 ? (
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                      ) : subject.unjustified_absences >= 5 ? (
+                        <AlertCircle className="h-6 w-6 text-red-600" />
                       ) : (
-                        <div className="text-sm text-muted-foreground">-</div>
+                        <AlertCircle className="h-6 w-6 text-yellow-600" />
                       )}
-                    </TableCell>
-                    <TableCell className="text-sm">{record.teacher_name}</TableCell>
-                    <TableCell className="text-sm">{record.class_name}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Alert for high absences */}
-      {unjustifiedAbsences >= 5 && (
+      {totalUnjustified >= 5 && (
         <div className="mt-6">
           <Card className="border-orange-200 bg-orange-50">
             <CardContent className="p-4">
@@ -347,7 +246,7 @@ export default function StudentAttendance() {
                 <div>
                   <div className="font-semibold">Atenção: Alto número de faltas não justificadas</div>
                   <div className="text-sm">
-                    Você possui {unjustifiedAbsences} faltas não justificadas. 
+                    Você possui {totalUnjustified} faltas não justificadas no total. 
                     Procure a secretaria para verificar sua situação acadêmica.
                   </div>
                 </div>

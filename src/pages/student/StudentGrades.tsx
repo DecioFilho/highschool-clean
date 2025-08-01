@@ -1,97 +1,100 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, GraduationCap } from 'lucide-react';
+import { BookOpen, ChevronRight, Award, Calendar, FileText } from 'lucide-react';
 
-interface Grade {
-  id: string;
-  grade_value: number;
-  grade_type: string;
-  evaluation_date: string;
+interface SubjectSummary {
   class_subject_id: string;
   subject_name: string;
   subject_code: string;
   class_name: string;
   teacher_name: string;
-}
-
-interface Subject {
-  subject_id: string;
-  subject_name: string;
-  subject_code: string;
+  grades: Array<{
+    grade_type: string;
+    grade_value: number;
+  }>;
+  average: number;
+  hasAllGrades: boolean;
+  isApproved: boolean | null;
+  totalGrades: number;
 }
 
 export default function StudentGrades() {
-  const [grades, setGrades] = useState<Grade[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const { user, isStudent } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const fetchGrades = useCallback(async () => {
+  const fetchSubjects = useCallback(async () => {
     if (!user?.id || !isStudent) return;
 
     try {
-      // Fetch all grades for the current student
-      const { data: gradesData, error: gradesError } = await supabase
-        .from('grades')
+      // Fetch all subjects the student is enrolled in
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from('class_enrollments')
         .select(`
-          id,
-          grade_value,
-          grade_type,
-          evaluation_date,
-          class_subject_id,
-          class_subjects (
-            subjects (name, code),
-            classes (name),
-            users (full_name)
+          classes (
+            id,
+            name,
+            class_subjects (
+              id,
+              subjects (name, code),
+              users (full_name)
+            )
           )
         `)
         .eq('student_id', user.id)
-        .order('evaluation_date', { ascending: false });
+        .eq('status', 'active');
 
-      if (gradesError) throw gradesError;
+      if (enrollmentError) throw enrollmentError;
 
-      // Transform data for easier use
-      const transformedGrades = gradesData?.map(grade => ({
-        id: grade.id,
-        grade_value: grade.grade_value,
-        grade_type: grade.grade_type,
-        evaluation_date: grade.evaluation_date,
-        class_subject_id: grade.class_subject_id,
-        subject_name: grade.class_subjects.subjects.name,
-        subject_code: grade.class_subjects.subjects.code,
-        class_name: grade.class_subjects.classes.name,
-        teacher_name: grade.class_subjects.users.full_name
-      })) || [];
+      const subjectSummaries: SubjectSummary[] = [];
 
-      setGrades(transformedGrades);
+      for (const enrollment of enrollmentData || []) {
+        const classData = enrollment.classes;
+        
+        // Process each class subject for this enrollment
+        for (const classSubject of classData.class_subjects || []) {
+          // Fetch grades for this subject
+          const { data: gradesData, error: gradesError } = await supabase
+            .from('grades')
+            .select('grade_type, grade_value')
+            .eq('student_id', user.id)
+            .eq('class_subject_id', classSubject.id);
 
-      // Extract unique subjects for filter
-      const uniqueSubjects = transformedGrades.reduce((acc: Subject[], grade) => {
-        const existingSubject = acc.find(s => s.subject_name === grade.subject_name);
-        if (!existingSubject) {
-          acc.push({
-            subject_id: grade.class_subject_id, // Using class_subject_id as identifier
-            subject_name: grade.subject_name,
-            subject_code: grade.subject_code
+          if (gradesError) throw gradesError;
+
+          // Calculate subject statistics
+          const grades = gradesData || [];
+          const { average, hasAllGrades, isApproved } = calculateSubjectStats(grades);
+
+          subjectSummaries.push({
+            class_subject_id: classSubject.id,
+            subject_name: classSubject.subjects.name,
+            subject_code: classSubject.subjects.code,
+            class_name: classData.name,
+            teacher_name: classSubject.users?.full_name || 'Professor não atribuído',
+            grades: grades,
+            average: average,
+            hasAllGrades: hasAllGrades,
+            isApproved: isApproved,
+            totalGrades: grades.length
           });
         }
-        return acc;
-      }, []);
+      }
 
-      setSubjects(uniqueSubjects);
+      setSubjects(subjectSummaries);
     } catch (error) {
-      console.error('Error fetching grades:', error);
+      console.error('Error fetching subjects:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao carregar suas notas',
+        description: 'Erro ao carregar suas matérias',
         variant: 'destructive',
       });
     } finally {
@@ -99,33 +102,24 @@ export default function StudentGrades() {
     }
   }, [user?.id, isStudent, toast]);
 
-  useEffect(() => {
-    fetchGrades();
-  }, [fetchGrades]);
+  // Calculate subject statistics
+  const calculateSubjectStats = (grades: Array<{grade_type: string; grade_value: number}>) => {
+    const expectedEvaluations = ['prova', 'trabalho'];
+    const hasAllGrades = expectedEvaluations.every(type => 
+      grades.some(grade => grade.grade_type === type)
+    );
 
-  // Filter grades by selected subject
-  const filteredGrades = selectedSubject === 'all' 
-    ? grades 
-    : grades.filter(grade => grade.subject_name === selectedSubject);
-
-  // Calculate weighted average grade
-  const calculateWeightedAverage = (gradesList: Grade[]) => {
-    if (gradesList.length === 0) return 0;
-    
     let totalWeightedGrade = 0;
     let totalWeight = 0;
-    
-    gradesList.forEach(grade => {
+
+    grades.forEach(grade => {
       let weight = 1;
       switch (grade.grade_type) {
         case 'prova':
           weight = 3;
           break;
         case 'trabalho':
-          weight = 2;
-          break;
-        case 'recuperacao':
-          weight = 5;
+          weight = 7;
           break;
         default:
           weight = 1;
@@ -133,27 +127,26 @@ export default function StudentGrades() {
       totalWeightedGrade += grade.grade_value * weight;
       totalWeight += weight;
     });
-    
-    return totalWeight > 0 ? totalWeightedGrade / totalWeight : 0;
+
+    const average = totalWeight > 0 ? totalWeightedGrade / totalWeight : 0;
+    const isApproved = hasAllGrades ? average >= 7 : null;
+
+    return { average, hasAllGrades, isApproved };
   };
 
-  const averageGrade = calculateWeightedAverage(filteredGrades).toFixed(1);
+  useEffect(() => {
+    fetchSubjects();
+  }, [fetchSubjects]);
 
-  const getGradeColor = (grade: number) => {
-    if (grade >= 8) return 'bg-green-100 text-green-800';
-    if (grade >= 6) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
+  const getStatusColor = (isApproved: boolean | null) => {
+    if (isApproved === true) return 'text-green-600';
+    if (isApproved === false) return 'text-red-600';
+    return 'text-gray-600';
   };
 
-  const getTypeLabel = (type: string) => {
-    const types: { [key: string]: string } = {
-      prova: 'Prova (peso 3)',
-      trabalho: 'Trabalho (peso 2)',
-      participacao: 'Participação',
-      projeto: 'Projeto',
-      recuperacao: 'Prova Final (peso 5)'
-    };
-    return types[type] || type;
+  const getStatusLabel = (isApproved: boolean | null, hasAllGrades: boolean) => {
+    if (!hasAllGrades) return 'Aguardando';
+    return isApproved ? 'Aprovado' : 'Reprovado';
   };
 
   if (!isStudent) {
@@ -186,7 +179,7 @@ export default function StudentGrades() {
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
         <BookOpen className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">Minhas Notas</h1>
+        <h1 className="text-2xl font-bold">Minhas Matérias</h1>
       </div>
 
       {/* Summary Card */}
@@ -194,120 +187,117 @@ export default function StudentGrades() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Resumo Acadêmico</CardTitle>
+            <CardDescription>
+              Use os botões "Ver Notas" e "Ver Faltas" para acessar os detalhes de cada matéria
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{filteredGrades.length}</div>
-                <div className="text-sm text-muted-foreground">
-                  {selectedSubject === 'all' ? 'Total de Notas' : 'Notas da Disciplina'}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className={`text-2xl font-bold ${parseFloat(averageGrade) >= 6 ? 'text-green-600' : 'text-red-600'}`}>
-                  {averageGrade}
-                </div>
-                <div className="text-sm text-muted-foreground">Média Geral</div>
-              </div>
-              <div className="text-center">
                 <div className="text-2xl font-bold text-primary">{subjects.length}</div>
-                <div className="text-sm text-muted-foreground">Disciplinas</div>
+                <div className="text-sm text-muted-foreground">Total de Matérias</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {subjects.filter(s => s.isApproved === true).length}
+                </div>
+                <div className="text-sm text-muted-foreground">Aprovações</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {subjects.filter(s => s.isApproved === false).length}
+                </div>
+                <div className="text-sm text-muted-foreground">Reprovações</div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filter */}
-      <div className="mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium">Filtrar por disciplina:</label>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger className="w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as disciplinas</SelectItem>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject.subject_id} value={subject.subject_name}>
-                      {subject.subject_name} ({subject.subject_code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Grades Table */}
-      {filteredGrades.length === 0 ? (
+      {/* Subjects List */}
+      {subjects.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <GraduationCap className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma nota encontrada</h3>
+            <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">Nenhuma matéria encontrada</h3>
             <p className="text-muted-foreground">
-              {selectedSubject === 'all' 
-                ? 'Você ainda não possui notas lançadas.'
-                : `Você ainda não possui notas para ${selectedSubject}.`
-              }
+              Você ainda não está matriculado em nenhuma matéria.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {selectedSubject === 'all' ? 'Todas as Notas' : `Notas - ${selectedSubject}`}
-            </CardTitle>
-            <CardDescription>
-              Suas notas organizadas por data de avaliação
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Disciplina</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Nota</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Professor</TableHead>
-                  <TableHead>Turma</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredGrades.map((grade) => (
-                  <TableRow key={grade.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{grade.subject_name}</div>
-                        <div className="text-sm text-muted-foreground">{grade.subject_code}</div>
+        <div className="grid gap-4">
+          {subjects.map((subject) => (
+            <Card 
+              key={subject.class_subject_id} 
+              className="hover:shadow-md transition-shadow"
+            >
+              <CardContent className="p-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <BookOpen className="h-5 w-5 text-primary" />
+                        <h3 className="text-lg font-semibold">{subject.subject_name}</h3>
+                        <Badge variant="outline">{subject.subject_code}</Badge>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {getTypeLabel(grade.grade_type)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getGradeColor(grade.grade_value)}>
-                        {grade.grade_value.toFixed(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(grade.evaluation_date).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell className="text-sm">{grade.teacher_name}</TableCell>
-                    <TableCell className="text-sm">{grade.class_name}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        <p><strong>Turma:</strong> {subject.class_name}</p>
+                        <p><strong>Professor(a):</strong> {subject.teacher_name}</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Notas lançadas: </span>
+                          <span className="font-medium">{subject.totalGrades}/2</span>
+                        </div>
+                        {subject.hasAllGrades && (
+                          <>
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Média: </span>
+                              <span className={`font-bold ${subject.isApproved ? 'text-green-600' : 'text-red-600'}`}>
+                                {subject.average.toFixed(1)}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-sm font-bold ${getStatusColor(subject.isApproved)}`}>
+                                {getStatusLabel(subject.isApproved, subject.hasAllGrades)}
+                              </div>
+                              {subject.isApproved === true && (
+                                <Award className="h-4 w-4 text-green-600 mx-auto mt-1" />
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Action buttons */}
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => navigate(`/student/subject/${subject.class_subject_id}/grades`)}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Ver Notas
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => navigate(`/student/subject/${subject.class_subject_id}/attendance`)}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Ver Faltas
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

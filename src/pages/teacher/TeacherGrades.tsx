@@ -276,7 +276,7 @@ export default function TeacherGrades() {
           <CardHeader>
             <CardTitle className="text-lg">Configuração da Avaliação</CardTitle>
             <CardDescription>
-              Configure o tipo de avaliação e a data antes de lançar as notas
+              Configure o tipo de avaliação e a data antes de lançar as notas. Nota mínima para aprovação: 7,0
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -288,9 +288,8 @@ export default function TeacherGrades() {
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="prova">Prova (peso 3)</SelectItem>
-                    <SelectItem value="trabalho">Trabalho (peso 2)</SelectItem>
-                    <SelectItem value="recuperacao">Prova Final (peso 5)</SelectItem>
+                    <SelectItem value="prova">Avaliação 1 (peso 3)</SelectItem>
+                    <SelectItem value="trabalho">Avaliação 2 (peso 7)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
