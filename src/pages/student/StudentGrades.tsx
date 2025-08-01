@@ -3,10 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, ChevronRight, Award, Calendar, FileText } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { 
+  BookOpen, 
+  ChevronRight, 
+  ChevronDown,
+  Award, 
+  Calendar, 
+  FileText, 
+  TrendingUp,
+  Clock,
+  User,
+  Target,
+  CheckCircle,
+  AlertTriangle
+} from 'lucide-react';
 
 interface SubjectSummary {
   class_subject_id: string;
@@ -27,6 +42,7 @@ interface SubjectSummary {
 export default function StudentGrades() {
   const [subjects, setSubjects] = useState<SubjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const { user, isStudent } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -175,128 +191,269 @@ export default function StudentGrades() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-6">
-        <BookOpen className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">Minhas Matérias</h1>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Modern Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+            <BookOpen className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Minhas Disciplinas</h1>
+            <p className="text-sm text-gray-600">Visão geral do seu desempenho acadêmico</p>
+          </div>
+        </div>
+        
+        {/* Quick stats */}
+        <div className="hidden md:flex items-center gap-6">
+          <div className="text-center">
+            <div className="text-lg font-bold text-gray-900">{subjects.length}</div>
+            <div className="text-xs text-gray-500">Disciplinas</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-green-600">
+              {subjects.filter(s => s.isApproved === true).length}
+            </div>
+            <div className="text-xs text-gray-500">Aprovações</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-red-600">
+              {subjects.filter(s => s.isApproved === false).length}
+            </div>
+            <div className="text-xs text-gray-500">Reprovações</div>
+          </div>
+        </div>
       </div>
 
-      {/* Summary Card */}
-      <div className="mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Resumo Acadêmico</CardTitle>
-            <CardDescription>
-              Use os botões "Ver Notas" e "Ver Faltas" para acessar os detalhes de cada matéria
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Performance Overview */}
+      {subjects.length > 0 && (
+        <Card className="bg-gradient-to-r from-gray-50 to-gray-100 border-0">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{subjects.length}</div>
-                <div className="text-sm text-muted-foreground">Total de Matérias</div>
+                <Target className="h-6 w-6 mx-auto mb-1 text-blue-500" />
+                <div className="text-xl font-bold">
+                  {(subjects.reduce((sum, s) => sum + (s.average || 0), 0) / subjects.filter(s => s.average > 0).length || 0).toFixed(1)}
+                </div>
+                <div className="text-xs text-gray-600">Média Geral</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+                <TrendingUp className="h-6 w-6 mx-auto mb-1 text-green-500" />
+                <div className="text-xl font-bold text-green-600">
                   {subjects.filter(s => s.isApproved === true).length}
                 </div>
-                <div className="text-sm text-muted-foreground">Aprovações</div>
+                <div className="text-xs text-gray-600">Aprovações</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">
+                <AlertTriangle className="h-6 w-6 mx-auto mb-1 text-red-500" />
+                <div className="text-xl font-bold text-red-600">
                   {subjects.filter(s => s.isApproved === false).length}
                 </div>
-                <div className="text-sm text-muted-foreground">Reprovações</div>
+                <div className="text-xs text-gray-600">Reprovações</div>
+              </div>
+              <div className="text-center">
+                <Clock className="h-6 w-6 mx-auto mb-1 text-orange-500" />
+                <div className="text-xl font-bold text-orange-600">
+                  {subjects.filter(s => s.isApproved === null).length}
+                </div>
+                <div className="text-xs text-gray-600">Pendentes</div>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
-      {/* Subjects List */}
+      {/* Subjects List - Compact View */}
       {subjects.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma matéria encontrada</h3>
-            <p className="text-muted-foreground">
-              Você ainda não está matriculado em nenhuma matéria.
+            <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-semibold mb-2 text-gray-900">Nenhuma disciplina encontrada</h3>
+            <p className="text-gray-600">
+              Você ainda não está matriculado em nenhuma disciplina.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {subjects.map((subject) => (
-            <Card 
-              key={subject.class_subject_id} 
-              className="hover:shadow-md transition-shadow"
-            >
-              <CardContent className="p-6">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <BookOpen className="h-5 w-5 text-primary" />
-                        <h3 className="text-lg font-semibold">{subject.subject_name}</h3>
-                        <Badge variant="outline">{subject.subject_code}</Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground mb-2">
-                        <p><strong>Turma:</strong> {subject.class_name}</p>
-                        <p><strong>Professor(a):</strong> {subject.teacher_name}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Notas lançadas: </span>
-                          <span className="font-medium">{subject.totalGrades}/2</span>
-                        </div>
-                        {subject.hasAllGrades && (
-                          <>
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">Média: </span>
-                              <span className={`font-bold ${subject.isApproved ? 'text-green-600' : 'text-red-600'}`}>
-                                {subject.average.toFixed(1)}
+        <div className="space-y-3">
+          {subjects.map((subject, index) => {
+            const isOpen = expandedSubjects.has(subject.class_subject_id);
+            const toggleExpanded = () => {
+              const newExpanded = new Set(expandedSubjects);
+              if (isOpen) {
+                newExpanded.delete(subject.class_subject_id);
+              } else {
+                newExpanded.add(subject.class_subject_id);
+              }
+              setExpandedSubjects(newExpanded);
+            };
+            
+            return (
+              <Card key={subject.class_subject_id} className="border-l-4 border-l-gray-200 hover:border-l-blue-400 transition-colors">
+                <Collapsible open={isOpen} onOpenChange={toggleExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <CardContent className="p-4 cursor-pointer hover:bg-gray-50/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          {/* Subject Status Indicator */}
+                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                            subject.isApproved === true ? 'bg-green-500' :
+                            subject.isApproved === false ? 'bg-red-500' :
+                            subject.average > 0 ? 'bg-yellow-500' : 'bg-gray-400'
+                          }`} />
+                          
+                          {/* Subject Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-gray-900 truncate">{subject.subject_name}</h3>
+                              <Badge variant="outline" className="text-xs">{subject.subject_code}</Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {subject.teacher_name}
                               </span>
+                              <span>{subject.class_name}</span>
                             </div>
-                            <div className="text-right">
-                              <div className={`text-sm font-bold ${getStatusColor(subject.isApproved)}`}>
-                                {getStatusLabel(subject.isApproved, subject.hasAllGrades)}
+                          </div>
+
+                          {/* Quick Stats */}
+                          <div className="hidden md:flex items-center gap-6 text-sm">
+                            <div className="text-center">
+                              <div className={`font-bold ${
+                                subject.isApproved === true ? 'text-green-600' :
+                                subject.isApproved === false ? 'text-red-600' :
+                                'text-gray-600'
+                              }`}>
+                                {subject.hasAllGrades ? subject.average.toFixed(1) : '--'}
                               </div>
-                              {subject.isApproved === true && (
-                                <Award className="h-4 w-4 text-green-600 mx-auto mt-1" />
-                              )}
+                              <div className="text-xs text-gray-500">Média</div>
                             </div>
-                          </>
+                            
+                            <div className="text-center">
+                              <div className="font-bold text-gray-900">{subject.totalGrades}/2</div>
+                              <div className="text-xs text-gray-500">Notas</div>
+                            </div>
+
+                            {subject.hasAllGrades && (
+                              <div className="flex items-center gap-2">
+                                {subject.isApproved === true ? (
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                                )}
+                                <span className={`text-xs font-medium ${
+                                  subject.isApproved === true ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  {subject.isApproved === true ? 'APROVADO' : 'REPROVADO'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 ml-4">
+                          {subject.average > 0 && (
+                            <div className="hidden sm:block w-20">
+                              <Progress 
+                                value={Math.min((subject.average / 10) * 100, 100)} 
+                                className="h-2"
+                              />
+                            </div>
+                          )}
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 pb-4 px-4">
+                      <div className="border-t pt-4 space-y-4">
+                        {/* Mobile stats */}
+                        <div className="grid grid-cols-2 md:hidden gap-4 text-sm">
+                          <div className="text-center p-2 bg-gray-50 rounded">
+                            <div className={`font-bold ${
+                              subject.isApproved === true ? 'text-green-600' :
+                              subject.isApproved === false ? 'text-red-600' :
+                              'text-gray-600'
+                            }`}>
+                              {subject.hasAllGrades ? subject.average.toFixed(1) : '--'}
+                            </div>
+                            <div className="text-xs text-gray-500">Média</div>
+                          </div>
+                          <div className="text-center p-2 bg-gray-50 rounded">
+                            <div className="font-bold text-gray-900">{subject.totalGrades}/2</div>
+                            <div className="text-xs text-gray-500">Notas</div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 justify-start"
+                            onClick={() => navigate(`/student/subject/${subject.class_subject_id}/overview`)}
+                          >
+                            <TrendingUp className="h-4 w-4 mr-2" />
+                            Visão Geral
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 justify-start"
+                            onClick={() => navigate(`/student/subject/${subject.class_subject_id}/grades`)}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            Notas Detalhadas
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1 justify-start"
+                            onClick={() => navigate(`/student/subject/${subject.class_subject_id}/attendance`)}
+                          >
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Faltas
+                          </Button>
+                        </div>
+
+                        {/* Status Message */}
+                        {subject.hasAllGrades && (
+                          <div className={`p-3 rounded-lg text-sm ${
+                            subject.isApproved === true 
+                              ? 'bg-green-50 text-green-700 border border-green-200' 
+                              : 'bg-red-50 text-red-700 border border-red-200'
+                          }`}>
+                            {subject.isApproved === true ? (
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4" />
+                                <span>
+                                  Parabéns! Você foi <strong>aprovado</strong> com média {subject.average.toFixed(1)}.
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                <span>
+                                  Você foi <strong>reprovado</strong>. Faltaram {(7 - subject.average).toFixed(1)} pontos para aprovação.
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* Action buttons */}
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => navigate(`/student/subject/${subject.class_subject_id}/grades`)}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Ver Notas
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => navigate(`/student/subject/${subject.class_subject_id}/attendance`)}
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Ver Faltas
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

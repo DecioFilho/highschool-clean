@@ -379,7 +379,7 @@ export default function Dashboard() {
     if (isAdmin) {
       return (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
@@ -419,18 +419,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Taxa de Frequência</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : `${stats.attendanceRate}%`}</div>
-                <p className="text-xs text-muted-foreground">
-                  Últimos 30 dias
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -467,42 +455,42 @@ export default function Dashboard() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Atividades Recentes</CardTitle>
-                <CardDescription>
-                  Últimas ações no sistema
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Atividades Recentes</CardTitle>
+                  <Button variant="ghost" size="sm" className="text-xs">Ver todas</Button>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {loading ? (
-                    <div className="space-y-3">
-                      {[...Array(4)].map((_, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <div className="w-2 h-2 bg-muted rounded-full animate-pulse"></div>
-                          <div className="space-y-1 flex-1">
-                            <div className="h-4 bg-muted rounded animate-pulse"></div>
-                            <div className="h-3 bg-muted rounded animate-pulse w-2/3"></div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : recentActivities.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p>Nenhuma atividade recente</p>
-                    </div>
-                  ) : (
-                    recentActivities.map((activity) => (
-                      <div key={activity.id} className="flex items-center gap-3">
-                        <div className={`w-2 h-2 ${getActivityColor(activity.type)} rounded-full`}></div>
-                        <div className="text-sm">
-                          <p className="font-medium">{activity.description}</p>
-                          <p className="text-muted-foreground">{getTimeAgo(activity.time)}</p>
+              <CardContent className="pt-0">
+                {loading ? (
+                  <div className="space-y-2">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2">
+                        <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"></div>
+                        <div className="flex-1 space-y-1">
+                          <div className="h-3 bg-gray-300 rounded animate-pulse"></div>
+                          <div className="h-2 bg-gray-200 rounded animate-pulse w-2/3"></div>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : recentActivities.length === 0 ? (
+                  <div className="text-center py-3 text-muted-foreground">
+                    <p className="text-sm">Nenhuma atividade recente</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentActivities.slice(0, 3).map((activity) => (
+                      <div key={activity.id} className="flex items-center gap-3 py-2 text-sm">
+                        <div className={`w-2 h-2 ${getActivityColor(activity.type)} rounded-full`}></div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{activity.description}</p>
+                          <p className="text-xs text-gray-500">{getTimeAgo(activity.time)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -513,49 +501,152 @@ export default function Dashboard() {
     if (isTeacher) {
       return (
         <>
-          <div className="grid gap-4 md:grid-cols-1">
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Minhas Turmas</CardTitle>
-                <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{loading ? <div className="h-8 w-16 bg-muted rounded animate-pulse" /> : teacherStats.myClasses}</div>
-                <p className="text-xs text-muted-foreground">
-                  {teacherStats.totalStudents} alunos no total
-                </p>
+          {/* Compact Stats Row */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-0">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                    <GraduationCap className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-gray-900">
+                      {loading ? <div className="h-6 w-8 bg-gray-300 rounded animate-pulse" /> : teacherStats.myClasses}
+                    </div>
+                    <div className="text-sm text-gray-600">Turmas</div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-          </div>
 
-          <div className="grid gap-4 md:grid-cols-1">
-            <Card>
-              <CardHeader>
-                <CardTitle>Ações Rápidas</CardTitle>
-                <CardDescription>
-                  Funcionalidades principais para professores
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Link to="/my-classes" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
-                    <Calendar className="h-5 w-5 text-orange-500" />
-                    <div>
-                      <p className="font-medium">Registrar frequência</p>
-                      <p className="text-sm text-muted-foreground">Acesse suas turmas</p>
+            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-0">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-gray-900">
+                      {loading ? <div className="h-6 w-8 bg-gray-300 rounded animate-pulse" /> : teacherStats.totalStudents}
                     </div>
-                  </Link>
-                  <Link to="/my-classes" className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors">
-                    <Award className="h-5 w-5 text-blue-500" />
-                    <div>
-                      <p className="font-medium">Lançar notas</p>
-                      <p className="text-sm text-muted-foreground">Acesse suas turmas</p>
+                    <div className="text-sm text-gray-600">Alunos</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-0">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center">
+                    <BookOpen className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold text-gray-900">
+                      {loading ? <div className="h-6 w-8 bg-gray-300 rounded animate-pulse" /> : teacherStats.mySubjects || 0}
                     </div>
-                  </Link>
+                    <div className="text-sm text-gray-600">Disciplinas</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Quick Actions Grid */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="group hover:shadow-lg transition-all duration-200 border-0 bg-gradient-to-br from-orange-500 to-red-500 text-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Registrar Frequência</h3>
+                    <p className="text-sm text-orange-100 mb-4">
+                      Marque presenças e ausências dos alunos
+                    </p>
+                    <Link to="/my-classes">
+                      <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-0">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Acessar Turmas
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="opacity-60 group-hover:opacity-100 transition-opacity">
+                    <Calendar className="h-12 w-12" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="group hover:shadow-lg transition-all duration-200 border-0 bg-gradient-to-br from-blue-500 to-indigo-500 text-white">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Lançar Notas</h3>
+                    <p className="text-sm text-blue-100 mb-4">
+                      Registre avaliações e calcule médias
+                    </p>
+                    <Link to="/my-classes">
+                      <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-0">
+                        <Award className="h-4 w-4 mr-2" />
+                        Acessar Turmas
+                      </Button>
+                    </Link>
+                  </div>
+                  <div className="opacity-60 group-hover:opacity-100 transition-opacity">
+                    <Award className="h-12 w-12" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Activity - Compact */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Atividade Recente</CardTitle>
+                <Button variant="ghost" size="sm" className="text-xs">Ver todas</Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {loading ? (
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 py-2">
+                      <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"></div>
+                      <div className="flex-1 space-y-1">
+                        <div className="h-3 bg-gray-300 rounded animate-pulse"></div>
+                        <div className="h-2 bg-gray-200 rounded animate-pulse w-2/3"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 py-2 text-sm">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Frequência registrada</p>
+                      <p className="text-xs text-gray-500">2º Ano A - Matemática • há 2 horas</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 py-2 text-sm">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Notas lançadas</p>
+                      <p className="text-xs text-gray-500">1º Ano B - Física • ontem</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 py-2 text-sm">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Turma acessada</p>
+                      <p className="text-xs text-gray-500">3º Ano A - Química • há 1 dia</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       );
     }

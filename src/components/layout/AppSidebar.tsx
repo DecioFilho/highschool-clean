@@ -22,12 +22,18 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { StudentSidebar } from './StudentSidebar';
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { isAdmin, isTeacher, isStudent } = useAuth();
+
+  // Use specialized sidebar for students
+  if (isStudent) {
+    return <StudentSidebar />;
+  }
 
   const isActive = (path: string) => location.pathname === path;
   

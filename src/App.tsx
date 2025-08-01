@@ -26,6 +26,7 @@ const StudentGrades = lazy(() => import("./pages/student/StudentGrades"));
 const StudentAttendance = lazy(() => import("./pages/student/StudentAttendance"));
 const SubjectGrades = lazy(() => import("./pages/student/SubjectGrades"));
 const SubjectAttendance = lazy(() => import("./pages/student/SubjectAttendance"));
+const SubjectOverview = lazy(() => import("./pages/student/SubjectOverview"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -173,6 +174,16 @@ const App = () => (
                   <ProtectedRoute requiredRole="aluno">
                     <DashboardLayout>
                       <StudentAttendance />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/student/subject/:subjectId/overview"
+                element={
+                  <ProtectedRoute requiredRole="aluno">
+                    <DashboardLayout>
+                      <SubjectOverview />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
