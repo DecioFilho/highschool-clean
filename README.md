@@ -58,7 +58,7 @@ npm run preview
 - Visualização de alunos matriculados
 
 ### Aluno
-- Visualização das suas notas
+- Visualização das suas próprias notas
 - Acompanhamento da frequência
 - Consulta de turmas e matérias
 
